@@ -71,7 +71,7 @@ def getSearchPatterns():
             with open(sys.argv[3], "rb") as kwFile:
                 lines = kwFile.readlines()
                 if(len(lines) != len(keywords)):
-                    print(sys.argv[3] + " doesn't contain " + len(keywords) + " keywords (1 per line)!\nAborting ...")
+                    print(sys.argv[3] + " doesn't contain " + str(len(keywords)) + " keywords (1 per line)!\nAborting ...")
                     exit()
                 for i in range(len(lines)):
                     keywords[i] = lines[i].decode("UTF-8").strip()
