@@ -1,7 +1,7 @@
-# Tool for extracting pre-defined text data from PDF documents
-# specifically for "Modulhandbücher der Hochschule Bochum"
+# Tool for extracting predefined text data from PDF documents
+# specifically from "Modulhandbücher der Hochschule Bochum"
 # by Christian Figge - Germany 2024
-# (Work in progress)
+# (v02 - Work in progress)
 #
 # Only works on PDFs with plain trailer sections and xref tables
 #
@@ -77,21 +77,21 @@ def getSearchPatterns():
                     keywords[i] = lines[i].decode("UTF-8").strip()
                 
         except FileNotFoundError:
-            print("File " + sys.argv[sys.argv[3]] + " not found!")
+            print("File " + sys.argv[3] + " not found!")
             exit()
         
     print("Compiling regex patterns ... ", end="")
     patterns = [
         re.compile("(.*?) " + keywords[1]), # name
         re.compile(keywords[0] + "(.*?) " + keywords[1]), # kennnr
-        re.compile(keywords[1] + ".*?([0-9]*?) h " + keywords[2]), # workload
-        re.compile(keywords[2] + " ([0-9]*?) " + keywords[3]), # credits
+        re.compile(keywords[1] + ".*?([0-9]*?)[^0-9]*?" + keywords[2]), # workload
+        re.compile(keywords[2] + ".*?([0-9]*?)[^0-9]*?" + keywords[3]), # credits
         re.compile(keywords[3] + ".*?([0-9]).*?" + keywords[4]), # semester start
         re.compile(keywords[4] + "(.*?) " + keywords[5]), # haeufigkeit
         re.compile(keywords[5] + ".*?([0-9]?) Sem"), # dauer
         re.compile(keywords[6] + "(.*?)" + keywords[7]), # veranstaltungen
         re.compile(keywords[7] + "(.*?)" + keywords[8]), # kontaktzeit
-        re.compile(keywords[8] + ".*?([0-9]*?) h " + keywords[9]), # selbststudium
+        re.compile(keywords[8] + ".*?([0-9]*?)[^0-9]*?" + keywords[9]), # selbststudium
         re.compile(keywords[9] + "(.*?)2 " + keywords[10]), # gruppengröße
         re.compile("2 " + keywords[10] + "(.*?)3 " + keywords[11]), # lernziele
         re.compile("3 " + keywords[11] + "(.*?)4 " + keywords[12]), # inhalte
@@ -102,7 +102,7 @@ def getSearchPatterns():
         re.compile("8 " + keywords[16] + "(.*?)9 " + keywords[17]), # verwendung
         re.compile("9 " + keywords[17] + "(.*?)10 " + keywords[18]), # stellenwert
         re.compile("10 " + keywords[18] + "(.*)"), # lehrende 
-        re.compile(keywords[19] + "(.*)") # sonstiges   
+        re.compile("11 " + keywords[19] + "(.*)") # sonstiges   
     ]
     print("Done")
     return patterns
@@ -118,6 +118,8 @@ def pages2dict(pages):
         modul = copy.deepcopy(modul_dummy)
         pList = pages[pIdx]
         pText = "".join(pList)
+        
+        #print(pText) # debug
         
         # check if it's a module page
         if(keywords[1] in pText and keywords[2] in pText): # they got typos in keywords[0]...
@@ -169,7 +171,7 @@ def pages2dict(pages):
             match = searchPatterns[19].search(pText, lastPos)
             if(match):
                 matchStr = match.group(1)
-                endIdx = matchStr.find(keywords[19])
+                endIdx = matchStr.find("11 " + keywords[19])
                 if(endIdx != -1):
                     modul[keys[19]] = matchStr[:endIdx].lstrip('.:').strip(' ')
                     
@@ -277,8 +279,8 @@ def main():
                     
                 f.seek(trailerPos)
                 trailerBytes = f.read()
-                nObjs = int(re.search(rb'/Size ([0-9]*?)/', trailerBytes).group(1))
-                rootObjIdx = int(re.search(rb'/Root ([0-9]*?) ', trailerBytes).group(1))
+                nObjs = int(re.search(rb'/Size ([0-9]*?)[^0-9]', trailerBytes).group(1))
+                rootObjIdx = int(re.search(rb'/Root ([0-9]*?)[^0-9]', trailerBytes).group(1))
                 
                 # get info about xref table(s)
                 pos = fSize
@@ -304,22 +306,22 @@ def main():
                 
                 # get page obj indices
                 rootObjBytes = getObjBytes(f, objOffsets, rootObjIdx)
-                pagesObjIdx = int(re.search(rb'/Pages ([0-9]*?) ', rootObjBytes).group(1))
+                pagesObjIdx = int(re.search(rb'/Pages ([0-9]*?)[^0-9]', rootObjBytes).group(1))
                 pagesObjBytes = getObjBytes(f, objOffsets, pagesObjIdx)
-                kidsBytes = re.search(rb'Kids\[ (.*?)\]', pagesObjBytes).group(1).split(b' ')
+                kidsBytes = re.search(rb'/Kids.*?\[([0-9 R]*?)\]', pagesObjBytes).group(1).strip().split(b' ')
                 pageObjIndices = [int(kidsBytes[i]) for i in range(0, len(kidsBytes), 3)]
                           
                 # get content obj indices
                 contentObjIndices = []
                 for pIdx in pageObjIndices:
                     pageBytes = getObjBytes(f, objOffsets, pIdx)
-                    contentObjIndices.append( int(re.search(rb'/Contents ([0-9]*?) ', pageBytes).group(1)) )
+                    contentObjIndices.append( int(re.search(rb'/Contents ([0-9]*?)[^0-9]', pageBytes).group(1)) )
                 
                 # get page texts 
                 pages = []
                 for cIdx in contentObjIndices:
                     contentBytes = getObjBytes(f, objOffsets, cIdx)
-                    if (rb'<</Filter/FlateDecode/Length ' in contentBytes): # needs decoding
+                    if (re.search(rb'(?s)<<.*?/Filter.*?/FlateDecode.*?>>', contentBytes)): # needs decoding
                         streamBytes = re.search(rb'(?s)stream(.*?)endstream', contentBytes).group(1)[2:-2] #.strip(b'\r\n')
                         contentBytes = zlib.decompress(streamBytes)
                     else:
@@ -369,12 +371,16 @@ def main():
                 dictModulhandbuch = pages2dict(pages)
                 
                 print("Writing output file '" + sys.argv[2] + "' ... ", end="")
-                with open(sys.argv[2], "w") as outFile:
-                    json.dump(dictModulhandbuch, outFile)
-                print("Done")                
+                try:
+                    with open(sys.argv[2], "w") as outFile:
+                        json.dump(dictModulhandbuch, outFile)
+                    print("Done")
+                except FileNotFoundError:
+                    print("\nERROR: File " + sys.argv[2] + " could not be accessed!\nExiting ...")
+                    exit()
                 
         except FileNotFoundError:
-            print("File " + sys.argv[fileIdx] + " not found!")
+            print("\nERROR: File " + sys.argv[fileIdx] + " not found!\nExiting ...")
             exit()
         
     else:
