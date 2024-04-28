@@ -1,0 +1,20 @@
+Modulnummer
+Workload
+Credits
+Studiensem
+Häufigkeit des Angebots
+Dauer
+Lehrveranstaltungen
+Kontaktzeit
+Selbststudium
+gepl. Gruppengröße
+Lernergebnisse \(learning.*?outcomes\).*?Kompetenzen
+Inhalte
+Lehrformen
+Teilnahmevoraussetzungen
+Prüfungsformen
+Voraussetzungen für die Vergabe von Kreditpunkten
+Verwendung des Moduls \(in anderen Studiengängen\)
+Stellenwert der Note für die Endnote
+Modulbeauftragte/r und hauptamtlich Lehrende
+Literatur / Arbeitsmaterialien
