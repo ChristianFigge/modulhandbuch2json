@@ -206,14 +206,8 @@ def printUnsureWarning(pageIdx, key, value):
     
 def getObjBytes(pdfFile, objOffsets, objIdx):
     pdfFile.seek(objOffsets[objIdx])
-    objBytes = b''
-    if(objIdx + 1 < len(objOffsets)):
-        objBytes = pdfFile.read(objOffsets[objIdx + 1] - objOffsets[objIdx])
-    else:
-        objBytes = pdfFile.read()
-        objBytes = objBytes[:objBytes.find(b'endobj')]
-        
-    return objBytes
+    objBytes = pdfFile.read()
+    return objBytes[:objBytes.find(b'endobj')]
 
 def getPlainText(byteString):
     return b''.join(re.findall(rb'\((.*?)\)', byteString))
