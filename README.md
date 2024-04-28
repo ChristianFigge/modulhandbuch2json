@@ -1,5 +1,4 @@
-Tool for extracting predefined text data from PDF documents
-specifically from "Modulhandbücher der Hochschule Bochum"
+Tool for extracting predefined text data from PDF documents, specifically from "Modulhandbücher der Hochschule Bochum"
 
 v02 - Work in progress
 
