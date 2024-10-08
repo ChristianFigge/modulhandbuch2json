@@ -355,7 +355,7 @@ def main():
                             cells[i] = ''.join(textParts)
                                
                         elif(foundGlyphTxt): # only glyphs
-                            cells[i] = getGlyphText(textParts[j])
+                            cells[i] = getGlyphText(cells[i])
                         elif(foundPlainTxt): # only plaintext
                             cells[i] = getPlainText(cells[i]).decode(encoding)                            
                         else:
