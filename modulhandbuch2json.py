@@ -189,6 +189,7 @@ def pages2dict(pages):
         
     dictModulhandbuch = {
         "fachbereich" : "",
+        "kuerzel: "",
         "studiengang" : "",
         "PO" : "",
         "stand" : "",
