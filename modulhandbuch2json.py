@@ -1,7 +1,7 @@
 # Tool for extracting predefined text data from PDF documents
 # specifically from "Modulhandbücher der Hochschule Bochum"
 # by Christian Figge - Germany 2024
-# (v02 - Work in progress)
+# (v04 - Work in progress)
 #
 # Only works on PDFs with plain trailer sections and xref tables
 #
@@ -24,7 +24,7 @@ modul_dummy = {
     "haeufigkeit": "", # 5 
     "dauer": 0, # 6
     "veranstaltungen": "", # 7
-    "kontaktzeit": "", # 8
+    "kontaktzeit": 0, # 8
     "selbststudium": 0, # 9
     "gruppen": "", # 10
     "lernergebnisse": "", # 11
@@ -36,7 +36,7 @@ modul_dummy = {
     "verwendung": "", # 17
     "stellenwert": "", # 18
     "modulbeauftragte": "", # 19
-    "sonstiges": "" # 20
+    "sonstiges": "", # 20
 }
 
 # words to scan the pages for (can be overwritten by providing a keywords.txt file)
@@ -49,7 +49,7 @@ keywords = [
     "Häufigkeit des Angebots", #4
     "Dauer", #5
     "Lehrveranstaltungen", # 6
-    "Kontaktzeit", # 7
+    "Kontaktzeit.*?SWS", # 7
     "Selbststudium", # 8
     "geplante Gruppengröße", # 9
     "Lernergebnisse \(learning.*?outcomes\).*?Kompetenzen", # 10 
@@ -90,7 +90,7 @@ def getSearchPatterns():
         re.compile(keywords[4] + "(.*?) " + keywords[5]), # haeufigkeit
         re.compile(keywords[5] + ".*?([0-9]?) Sem"), # dauer
         re.compile(keywords[6] + "(.*?)" + keywords[7]), # veranstaltungen
-        re.compile(keywords[7] + "(.*?)" + keywords[8]), # kontaktzeit
+        re.compile(keywords[7] + ".*?([0-9]*?)[^0-9]*?" + keywords[8]), # kontaktzeit
         re.compile(keywords[8] + ".*?([0-9]*?)[^0-9]*?" + keywords[9]), # selbststudium
         re.compile(keywords[9] + "(.*?)2 " + keywords[10]), # gruppengröße
         re.compile("2 " + keywords[10] + "(.*?)3 " + keywords[11]), # lernziele
@@ -124,7 +124,7 @@ def pages2dict(pages):
         # check if it's a module page
         if(keywords[1] in pText and keywords[2] in pText): # they got typos in keywords[0]...
             startPage = pIdx 
-            print("Processing module on p. " + str(startPage + 1) + ": ", end="")
+            print("Processing entry on p. " + str(startPage + 1) + ": ", end="")
             
             # include next page if module is a 2-pager
             while(keywords[-2] not in pText): 
@@ -167,7 +167,7 @@ def pages2dict(pages):
                 else:
                     printUnsureWarning(startPage, keys[i], modul[keys[i]])
             
-            # get beauftragte & sonstiges
+            # get beauftragte & sonstiges (falls vorhanden)
             match = searchPatterns[19].search(pText, lastPos)
             if(match):
                 matchStr = match.group(1)
@@ -181,8 +181,8 @@ def pages2dict(pages):
                 else:
                     modul[keys[19]] = matchStr.lstrip('.:').strip(' ')
             else:
-                printUnsureWarning(startPage, keys[19], modul[keys[19]])          
-            
+                printUnsureWarning(startPage, keys[19], modul[keys[19]])
+                
             modules.append(modul)
             
         pIdx += 1
@@ -202,7 +202,7 @@ def invalidPDF(fileIdx = 1, errorMsg = "Unknown error"):
     exit();
     
 def printUnsureWarning(pageIdx, key, value):
-    print(">> Please check: keyword '" + key + "' : '" + str(value) + "'")
+    print(">> Please check keyword '" + key + "' : '" + str(value) + "'")
     
 def getObjBytes(pdfFile, objOffsets, objIdx):
     pdfFile.seek(objOffsets[objIdx])
@@ -230,8 +230,16 @@ def getGlyphText(byteString):
                 charList[i] = '"'
             case 'õ':
                 charList[i] = '"'
-            # TODO ä, ß und capital umlaute
-                
+            case 'á':
+                charList[i] = '"'
+            case 'Ð':
+                charList[i] = '"'
+            case 'È':
+                charList[i] = '...'
+            case '\x89':
+                charList[i] = 'ä'
+            # TODO ß und capital umlaute
+    
     return "".join(charList)
     
 def getModulNameIdx(pList):
@@ -347,7 +355,7 @@ def main():
                             cells[i] = ''.join(textParts)
                                
                         elif(foundGlyphTxt): # only glyphs
-                            cells[i] = getGlyphText(textParts[j])                           
+                            cells[i] = getGlyphText(textParts[j])
                         elif(foundPlainTxt): # only plaintext
                             cells[i] = getPlainText(cells[i]).decode(encoding)                            
                         else:
